@@ -1,0 +1,18 @@
+kind: ImageStream
+apiVersion: v1
+metadata:
+  name: s2i-mule-builder
+  annotations:
+    openshift.io/display-name: "Mule S2I builder"
+spec:
+  tags:
+  - name: latest
+    from:
+      kind: DockerImage
+      name: 'quay.io/jam01/s2i-mule-builder:latest'
+    annotations:
+      description: 'Build Mule applications with OpenJdk. \n\nWARNING: By selecting this tag, your application will automatically update to use the latest version of the builder.'
+      openshift.io/display-name: Mule S2I builder (Latest)
+      tags: builder,mule,integration
+      supports: java:8,mule-ce:3,mule-ce:4,mule-ee:3,mule-ee:4
+      version: '1.0'

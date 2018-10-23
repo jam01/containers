@@ -1,0 +1,3 @@
+#!/bin/bash -e
+
+echo "This image will not run on OpenShift. You can just use it as builder"

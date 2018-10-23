@@ -1,0 +1,150 @@
+#!/bin/sh
+set -o errexit
+
+# Global S2I variable setup
+source `dirname "$0"`/environment
+
+# Setup maven to use the directory where previous artifacts would be available
+# from an incremental build
+maven_env_args="-Dmaven.repo.local=${S2I_ARTIFACTS_DIR}/repository"
+
+# =========================================================================
+# Helper functions:
+
+function check_error() {
+  local label=$1
+  local error=$2
+  if [ ${error} -ne 0 ]; then
+    echo "Aborting due to error code $error for $label"
+    exit ${error}
+  fi
+}
+
+function copy_dir() {
+  local src=$1
+  local dest=$2
+
+  # Copy recursively and preserve ownership: -a
+  cp -a ${src}/* ${dest}
+}
+
+function copy_artifacts() {
+    local dir=$1
+    local dest=$2
+
+    cd ${dir}
+
+    local cp_args=${ARTIFACT_COPY_ARGS}
+    if [ x"${cp_args}" = x ]; then
+            cp_args="*.jar"
+    fi
+    echo "Running: cp -v ${cp_args} ${dest}"
+    cp -v ${cp_args} ${dest}
+}
+
+function setup_maven() {
+  if [ -n "$MULE_EE_USERNAME" -a -n "$MULE_EE_PASSWORD" ]; then
+    xml="<server>\
+         <id>mulesoft-ee-release</id>\
+         <username>$MULE_EE_USERNAME</username>\
+         <password>$MULE_EE_PASSWORD</password>\
+         </server>"
+    sed -i "s|<!-- ### build time configured servers ### -->|$xml|" $HOME/.m2/settings.xml
+  fi
+
+
+  if [ -n "$HTTP_PROXY_HOST" -a -n "$HTTP_PROXY_PORT" ]; then
+    xml="<proxy>\
+         <id>genproxy</id>\
+         <active>true</active>\
+         <protocol>http</protocol>\
+         <host>$HTTP_PROXY_HOST</host>\
+         <port>$HTTP_PROXY_PORT</port>"
+    if [ -n "$HTTP_PROXY_USERNAME" -a -n "$HTTP_PROXY_PASSWORD" ]; then
+      xml="$xml\
+         <username>$HTTP_PROXY_USERNAME</username>\
+         <password>$HTTP_PROXY_PASSWORD</password>"
+    fi
+    if [ -n "$HTTP_PROXY_NONPROXYHOSTS" ]; then
+      xml="$xml\
+         <nonProxyHosts>$HTTP_PROXY_NONPROXYHOSTS</nonProxyHosts>"
+    fi
+  xml="$xml\
+       </proxy>"
+    sed -i "s|<!-- ### build time configured http proxy ### -->|$xml|" $HOME/.m2/settings.xml
+  fi
+
+  if [ -n "$MAVEN_MIRROR_URL" ]; then
+    xml="    <mirror>\
+      <id>mirror.default</id>\
+      <url>$MAVEN_MIRROR_URL</url>\
+      <mirrorOf>external:*</mirrorOf>\
+    </mirror>"
+    sed -i "s|<!-- ### build time configured mirrors ### -->|$xml|" $HOME/.m2/settings.xml
+  fi
+
+  if [ -f "${S2I_SOURCE_DIR}/configuration/settings.xml" ]; then
+    maven_env_args="${maven_env_args} -s ${S2I_SOURCE_DIR}/configuration/settings.xml"
+    echo "Using custom maven settings from ${S2I_SOURCE_DIR}/configuration/settings.xml"
+  fi
+}
+
+function build_maven() {
+  # Where artifacts are created during build
+  local build_dir=$1
+
+  # Where to put the artifacts
+  local app_dir=$2
+
+  # Default args: no tests
+  local old_dir=$(pwd)
+  local mvn="mvn"
+  local maven_args=${MAVEN_ARGS:-package -DskipTests -Dmaven.javadoc.skip=true -Dmaven.site.skip=true -Dmaven.source.skip=true -Djacoco.skip=true -Dcheckstyle.skip=true -Dfindbugs.skip=true -Dpmd.skip=true -Dfabric8.skip=true -e -B}
+  export MAVEN_OPTS="-XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap"
+  echo "Using MAVEN_OPTS '${MAVEN_OPTS}'"
+
+
+  cd ${S2I_SOURCE_DIR}
+  check_error "changing directory to ${S2I_SOURCE_DIR}" $?
+
+  # =========
+  # Run Maven
+  echo "Running 'mvn ${maven_env_args} ${maven_args} ${MAVEN_ARGS_APPEND}'"
+  ${mvn} ${maven_env_args} --version
+  ${mvn} ${maven_env_args} ${maven_args} ${MAVEN_ARGS_APPEND}
+  check_error "Maven build" $?
+
+  # ==============
+  # Copy artifacts
+  echo "Copying Maven artifacts from ${build_dir} to ${app_dir} ..."
+  copy_artifacts ${build_dir} ${app_dir}
+  check_error "copying artifacts from ${build_dir} to ${app_dir}" $?
+
+
+  cd ${old_dir}
+}
+
+# =========================================================================
+# Main
+
+echo "=================================================================="
+echo "Starting S2I Java Build ....."
+
+
+[ -d "${OUTPUT_DIR}" ] || mkdir -p "${OUTPUT_DIR}"
+if [ -f "${S2I_SOURCE_DIR}/pom.xml" ]; then
+  echo "Found pom.xml ... "
+  build_dir="${S2I_SOURCE_DIR}/target"
+
+  # If a pom.xml is present use maven
+  setup_maven
+  build_maven ${build_dir} ${OUTPUT_DIR}
+else
+  echo "pom.xml not found"
+  exit 0
+fi
+
+# Remove java temporary hsperfdata directory owned by the mule user
+rm -rf /tmp/hsperfdata_mule
+
+echo "... done"

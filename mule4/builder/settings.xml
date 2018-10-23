@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<settings xmlns="http://maven.apache.org/SETTINGS/1.1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.1.0 http://maven.apache.org/xsd/settings-1.1.0.xsd">
+
+  <mirrors>
+    <!-- ### build time configured mirrors ### -->
+  </mirrors>
+
+  <proxies>
+    <!-- ### build time configured http proxy ### -->
+  </proxies>
+
+  <activeProfiles>
+    <!-- ### build time configured profiles ### -->
+  </activeProfiles>
+
+  <servers>
+    <!-- ### build time configured servers ### -->
+  </servers>
+
+  <profiles>
+    <!-- ### build time configured profiles ### -->
+    <profile>
+      <id>default</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+
+      <repositories>
+        <!-- MuleSoft public repositories -->
+        <repository>
+          <id>mulesoft-release</id>
+          <url>https://repository.mulesoft.org/nexus/content/groups/public</url>
+          <releases>
+            <enabled>true</enabled>
+          </releases>
+          <snapshots>
+            <enabled>false</enabled>
+          </snapshots>
+        </repository>
+        <repository>
+          <id>mulesoft-snapshots</id>
+          <url>https://repository.mulesoft.org/nexus/content/groups/public-snapshots</url>
+          <releases>
+            <enabled>false</enabled>
+          </releases>
+          <snapshots>
+            <enabled>true</enabled>
+          </snapshots>
+        </repository>
+        <!-- MuleSoft EE repositories -->
+        <repository>
+          <id>mulesoft-ee-release</id>
+          <url>https://repository.mulesoft.org/nexus-ee/content/repositories/releases-ee/</url>
+          <layout>default</layout>
+          <releases>
+            <enabled>true</enabled>
+          </releases>
+          <snapshots>
+            <enabled>true</enabled>
+          </snapshots>
+        </repository>
+      </repositories>
+      <pluginRepositories>
+        <pluginRepository>
+          <id>mulesoft-release</id>
+          <name>mulesoft release repository</name>
+          <layout>default</layout>
+          <url>https://repository.mulesoft.org/nexus/content/groups/public</url>
+          <snapshots>
+            <enabled>false</enabled>
+          </snapshots>
+        </pluginRepository>
+        <pluginRepository>
+          <id>mulesoft-ee-release</id>
+          <url>https://repository.mulesoft.org/nexus-ee/content/repositories/releases-ee/</url>
+          <layout>default</layout>
+          <releases>
+            <enabled>true</enabled>
+          </releases>
+          <snapshots>
+            <enabled>true</enabled>
+          </snapshots>
+        </pluginRepository>
+      </pluginRepositories>
+    </profile>
+
+    <!-- Override the repository "central" from the Maven Super POM, to set HTTPS by default -->
+    <profile>
+      <id>securecentral</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <repositories>
+        <repository>
+          <id>central</id>
+          <url>https://repo1.maven.org/maven2</url>
+          <releases>
+            <enabled>true</enabled>
+          </releases>
+        </repository>
+      </repositories>
+      <pluginRepositories>
+        <pluginRepository>
+          <id>central</id>
+          <url>https://repo1.maven.org/maven2</url>
+          <releases>
+            <enabled>true</enabled>
+          </releases>
+        </pluginRepository>
+      </pluginRepositories>
+    </profile>
+  </profiles>
+  
+  <pluginGroups>
+    <pluginGroup>org.mule.tools</pluginGroup>
+  </pluginGroups>
+</settings>

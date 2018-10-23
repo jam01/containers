@@ -1,0 +1,27 @@
+kind: ImageStream
+apiVersion: v1
+metadata:
+  name: mule4-ee
+  annotations:
+    openshift.io/display-name: "Mule 4 Runtime"
+spec:
+  tags:
+  - name: latest
+    from:
+      kind: DockerImage
+      name: 'quay.io/jam01/mule4-ee:latest'
+    annotations:
+      description: 'Run Mule 4 Enterprise Edition applications with OpenJdk.\n\nWARNING: By selecting this tag, your application will automatically update to use the latest version of the runtime.'
+      openshift.io/display-name: Mule 4 Runtime (Latest)
+      tags: runtime,mule,mule:4,integration
+      supports: mule-ee:4
+  - name: '4.1.4'
+    from:
+      kind: DockerImage
+      name: 'quay.io/jam01/mule4-ee:4.1.4-fedora-openjdk'
+    annotations:
+      description: 'Run Mule 4 Enterprise Edition applications on the 4.1.4 runtime with OpenJdk.'
+      openshift.io/display-name: Mule 4.1.4 Runtime
+      tags: mule,mule:4,integration
+      supports: mule-ee:4
+      version: '4.1.4'

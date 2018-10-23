@@ -1,0 +1,217 @@
+kind: Template
+apiVersion: v1
+message: A new Mule 4 EE application has been created in your project. A service to load balance multiple pods and an external route has been created. You can change the mule application's external properties in the ConfigMap of the same name.
+labels:
+  app: ${APPLICATION_NAME}
+  template: mule4-ee-web-basic-pipeline
+metadata:
+  name: mule4-ee-web-basic-pipeline
+  labels:
+    template: mule4-ee-web-basic-pipeline
+  annotations:
+    description: Application template for Mule 4 EE web applications built using Jenkins pipelines.
+    openshift.io/display-name: Pipeline Mule 4 EE Web Application (no https)
+    openshift.io/provider-display-name: https://github.com/jam01
+    template.openshift.io/long-description: This template defines resources needed to develop a Mule 4 EE based web application.
+    tags: quickstart,middleware,mule,mule4,integration
+objects:
+- kind: ImageStream
+  apiVersion: v1
+  metadata:
+    name: ${APPLICATION_NAME}
+    annotations:
+      description: Keeps track of changes in the application image
+- kind: BuildConfig
+  apiVersion: v1
+  metadata:
+    name: ${APPLICATION_NAME}-artifact-build
+    labels:
+      build: buiilder
+    annotations:
+      pipeline.alpha.openshift.io/uses: '[{"name": "${APPLICATION_NAME}", "namespace": "", "kind": "DeploymentConfig"}]'
+  spec:
+    source:
+      type: Git
+      git:
+        uri: ${GIT_URL}
+        ref: ${GIT_REF}
+      contextDir: ${GIT_CONTEXT_DIR}
+    strategy:
+      type: JenkinsPipeline
+      jenkinsPipelineStrategy:
+        jenkinsfilePath: Jenkinsfile
+    triggers:
+    - type: GitHub
+      github:
+        secret: "${GITHUB_WEBHOOK_SECRET}"
+    - type: Generic
+      generic:
+        secret: "${GENERIC_WEBHOOK_SECRET}"
+    - type: ConfigChange
+- kind: BuildConfig
+  apiVersion: v1
+  metadata:
+    name: ${APPLICATION_NAME}-runtime-build
+    labels:
+      build: runtime
+  spec:
+    runPolicy: Serial
+    source:
+      type: Dockerfile
+      dockerfile: |-
+        FROM mule4-ee:jaeger-latest
+        COPY * /opt/mule/apps/
+      binary:
+        asFile: ?
+    strategy:
+      type: Docker
+      dockerStrategy:
+        from:
+          kind: ImageStreamTag
+          name: mule4-ee-jaeger:latest
+          namespace: ${IMAGE_STREAM_NAMESPACE}
+    output:
+      to:
+        kind: ImageStreamTag
+        name: ${APPLICATION_NAME}:latest
+    triggers:
+    - type: ConfigChange
+- kind: ConfigMap
+  apiVersion: v1
+  metadata:
+    name: ${APPLICATION_NAME}-config
+  data:
+    http.port: "8081"
+    JAEGER_SAMPLER_MANAGER_HOST_PORT: jaeger-agent.${JAEGER_NAMESPACE}.svc:5778
+    JAEGER_AGENT_HOST: jaeger-agent.${JAEGER_NAMESPACE}.svc
+    JAEGER_SERVICE_NAME: ${APPLICATION_NAME}
+- kind: DeploymentConfig
+  apiVersion: v1
+  metadata:
+    name: ${APPLICATION_NAME}
+    annotations:
+      description: Defines how to deploy the mule application
+  spec:
+    replicas: 1
+    selector:
+      app: ${APPLICATION_NAME}
+      deploymentconfig: ${APPLICATION_NAME}
+    strategy:
+      type: Rolling
+      activeDeadlineSeconds: 21600
+      rollingParams:
+        intervalSeconds: 1
+        maxSurge: 25%
+        maxUnavailable: 25%
+        timeoutSeconds: 600
+        updatePeriodSeconds: 1
+    template:
+      metadata:
+        labels:
+          app: ${APPLICATION_NAME}
+          deploymentconfig: ${APPLICATION_NAME}
+      spec:
+        containers:
+        - name: ${APPLICATION_NAME}
+          image: ${APPLICATION_NAME}:latest
+          imagePullPolicy: Always
+          env:
+          - name: http.port
+            value: "8081"
+          envFrom:
+          - configMapRef:
+              name: ${APPLICATION_NAME}-config
+          ports:
+          - containerPort: 8081
+            protocol: TCP
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        terminationGracePeriodSeconds: 30
+    test: false
+    triggers:
+    - type: ConfigChange
+    - type: ImageChange
+      imageChangeParams:
+        automatic: true
+        containerNames:
+        - ${APPLICATION_NAME}
+        from:
+          kind: ImageStreamTag
+          name: ${APPLICATION_NAME}:latest
+- kind: Service
+  apiVersion: v1
+  metadata:
+    name: ${APPLICATION_NAME}
+    labels:
+      app: ${APPLICATION_NAME}
+    annotations:
+      description: Exposes and load balances the application pods
+  spec:
+    type: ClusterIP
+    ports:
+    - name: 8081-tcp
+      protocol: TCP
+      port: 8081
+      targetPort: 8081
+    selector:
+      app: ${APPLICATION_NAME}
+      deploymentconfig: ${APPLICATION_NAME}
+    sessionAffinity: None
+- kind: Route
+  apiVersion: v1
+  metadata:
+    name: ${APPLICATION_NAME}-http
+  spec:
+    host:
+    port:
+      targetPort: 8081-tcp
+    to:
+      kind: Service
+      name: ${APPLICATION_NAME}
+parameters:
+- description: Name of the application.
+  displayName: Application name
+  name: APPLICATION_NAME
+  required: true
+  value:
+- description: URL of the git repository with your application source code.
+  displayName: Git URL
+  name: GIT_URL
+  required: true
+  value:
+- description: Git branch name, tag or other ref of your repository if you are not using the default branch.
+  displayName: Git ref
+  name: GIT_REF
+  required: true
+  value: master
+- name: GIT_CONTEXT_DIR
+  description: Path within Git project to build; empty for root project directory.
+  displayName: Git Context Directory
+  value: ''
+- name: GITHUB_WEBHOOK_SECRET
+  description: GitHub trigger secret
+  generate: expression
+  from: "[a-zA-Z0-9]{8}"
+  required: true
+  displayName: GitHub Webhook Secret
+- name: GENERIC_WEBHOOK_SECRET
+  description: Generic build trigger secret
+  generate: expression
+  from: "[a-zA-Z0-9]{8}"
+  displayName: Generic Webhook Secret
+  required: true
+- name: MAVEN_MIRROR_URL
+  description: Maven mirror to use for builds
+  displayName: Maven mirror URL
+  required: false
+- description: Namespace in which the ImageStream for Mule 4 runtime image is installed. These ImageStreams are normally installed in the openshift namespace. You should only need to modify this if you've installed the ImageStreams in a different namespace/project.
+  displayName: ImageStream Namespace
+  name: IMAGE_STREAM_NAMESPACE
+  required: true
+  value: openshift
+- description:
+  displayName: Namespace of the ephemeral Jaeger instance
+  name: JAEGER_NAMESPACE
+  required: true
