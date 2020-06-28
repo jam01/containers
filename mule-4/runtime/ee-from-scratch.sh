@@ -38,7 +38,11 @@ rm -rf "mule-enterprise-standalone-${RUNTIME_VER}"
 
 
 cmn_echo_info "---> Configuring runtime"
-buildah copy $container "./mule-4/runtime/${RUNTIME_VER}-java${JAVA_MAJOR_VER}-wrapper.conf" "opt/mule/conf/wrapper.conf"
+# enable log4j2 JMX
+buildah run --runtime /usr/bin/runc ${container} --user root $container bash -c "sed -i '/log4j2.disable.jmx=true/s/^/#/'"
+# include additional wrapper.conf properties
+buildah run --runtime /usr/bin/runc ${container} --user root $container bash -c "sed -i '/^#include.*\/wrapper-additional.conf/s/^#//'"
+buildah copy $container "./mule-4/runtime/wrapper-additional-java${JAVA_MAJOR_VER}.conf" "opt/mule/conf/wrapper-additional.conf"
 buildah config --env MULE_HOME=/opt/mule $container
 cmn_mule_add_group_permissions $container
 
@@ -65,27 +69,3 @@ if [[ $JAVA_MAJOR_VER == "11" ]]; then
   # Tag as latest
   buildah tag "quay.io/jam01/mule-4-ee-${DISTRO_NAME}:${RUNTIME_VER}-java${JAVA_MAJOR_VER}" "quay.io/jam01/mule-4-ee-${DISTRO_NAME}:latest"
 fi
-
-# ------------------------------------------------------------------------------
-
-# cmn_echo_info "---> Building jam01/mule4-ee:${RUNTIME_VER}-${DISTRO_NAME}-openjdk-jaeger OCI image"
-
-
-# Add OpenTracing Agent
-# cmn_echo_info "---> Adding OpenTracing Agent"
-# container_ot_home=/opt/opentracing-agent
-# buildah run --user root $container mkdir -p ${container_ot_home}/lib
-# buildah copy $container "opentracing-mule-agent.jar" ${container_ot_home}
-# buildah copy $container "lib" ${container_ot_home}/lib
-# buildah copy $container "./mule4/runtime/${RUNTIME_VER}-ot-wrapper.conf" "opt/mule/conf/wrapper.conf"
-# buildah config --env OT_HOME=${container_ot_home} $container
-#
-#
-# cmn_echo_info "---> Configuring image"
-# buildah config --author "Jose Montoya <jam01@protonmail.com>" $container
-# buildah config --label name=mule4-ee-jaeger ${container}
-# buildah config --label io.openshift.tags="jaeger" ${container}
-#
-#
-# cmn_echo_info "---> Commiting quay.io/jam01/mule4-ee:${RUNTIME_VER}-${DISTRO_NAME}-openjdk-jaeger"
-# buildah commit -rm $container quay.io/jam01/mule4-ee:${RUNTIME_VER}-${DISTRO_NAME}-openjdk-jaeger

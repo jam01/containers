@@ -1,8 +1,0 @@
-#!/bin/sh
-cat <<EOF
-This is the s2i-mule-builder S2I image:
-To use it, install S2I: https://github.com/openshift/source-to-image
-Sample invocation:
-sti build git://<source code> s2i-mule-builder <application image>
-The resulting built artifact will be left in /tmp/output directory in the resulting <application image>
-EOF

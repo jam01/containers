@@ -3,33 +3,38 @@ apiVersion: v1
 message: A new Mule 4 EE application has been created in your project. A service to load balance multiple pods and an external route has been created. You can change the mule application's external properties in the ConfigMap of the same name.
 labels:
   app: ${APPLICATION_NAME}
-  template: mule4-ee-web-basic-pipeline
+  template: mule-4-ee-web-basic-s2i
 metadata:
-  name: mule4-ee-web-basic-pipeline
+  name: mule-4-ee-web-basic-s2i
   labels:
-    template: mule4-ee-web-basic-pipeline
+    template: mule-4-ee-web-basic-s2i
   annotations:
-    description: Application template for Mule 4 EE web applications built using Jenkins pipelines.
-    openshift.io/display-name: Pipeline Mule 4 EE Web Application (no https)
+    description: Application template for Mule 4 EE web applications built using S2I.
+    openshift.io/display-name: Mule 4 EE Web Application (no https)
     openshift.io/provider-display-name: https://github.com/jam01
     template.openshift.io/long-description: This template defines resources needed to develop a Mule 4 EE based web application.
-    tags: quickstart,middleware,mule,mule4,integration
+    tags: quickstart,mule,mule-4-ee,middleware,integration
 objects:
 - kind: ImageStream
   apiVersion: v1
   metadata:
-    name: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}-artifact
     annotations:
-      description: Keeps track of changes in the application image
-- kind: BuildConfig
+      description: Keeps track of changes in the built artifact image
+- kind: ImageStream
   apiVersion: v1
+  metadata:
+    name: ${APPLICATION_NAME}-runtime
+    annotations:
+      description: Keeps track of changes in the runtime image
+- apiVersion: v1
+  kind: BuildConfig
   metadata:
     name: ${APPLICATION_NAME}-artifact-build
     labels:
-      build: buiilder
-    annotations:
-      pipeline.alpha.openshift.io/uses: '[{"name": "${APPLICATION_NAME}", "namespace": "", "kind": "DeploymentConfig"}]'
+      build: builder
   spec:
+    runPolicy: Serial
     source:
       type: Git
       git:
@@ -37,9 +42,20 @@ objects:
         ref: ${GIT_REF}
       contextDir: ${GIT_CONTEXT_DIR}
     strategy:
-      type: JenkinsPipeline
-      jenkinsPipelineStrategy:
-        jenkinsfilePath: Jenkinsfile
+      type: Source
+      sourceStrategy:
+        incremental: true
+        from:
+          kind: ImageStreamTag
+          name: s2i-mule-builder:latest
+          namespace: ${IMAGE_STREAM_NAMESPACE}
+        env:
+        - name: MAVEN_MIRROR_URL
+          value: ${MAVEN_MIRROR_URL}
+    output:
+      to:
+        kind: ImageStreamTag
+        name: ${APPLICATION_NAME}-artifact:latest
     triggers:
     - type: GitHub
       github:
@@ -48,6 +64,8 @@ objects:
       generic:
         secret: "${GENERIC_WEBHOOK_SECRET}"
     - type: ConfigChange
+    - type: ImageChange
+      imageChange: {}
 - kind: BuildConfig
   apiVersion: v1
   metadata:
@@ -59,36 +77,45 @@ objects:
     source:
       type: Dockerfile
       dockerfile: |-
-        FROM mule4-ee:jaeger-latest
+        FROM mule-4-ee:latest
         COPY * /opt/mule/apps/
-      binary:
-        asFile: ?
+      images:
+      - from:
+          kind: ImageStreamTag
+          name: ${APPLICATION_NAME}-artifact:latest
+        paths:
+        - destinationDir: .
+          sourcePath: /tmp/output/
     strategy:
       type: Docker
       dockerStrategy:
         from:
           kind: ImageStreamTag
-          name: mule4-ee-jaeger:latest
+          name: mule-4-ee:latest
           namespace: ${IMAGE_STREAM_NAMESPACE}
     output:
       to:
         kind: ImageStreamTag
-        name: ${APPLICATION_NAME}:latest
+        name: ${APPLICATION_NAME}-runtime:latest
     triggers:
     - type: ConfigChange
+    - type: ImageChange
+      imageChange:
+        from:
+          kind: ImageStreamTag
+          name: ${APPLICATION_NAME}-artifact:latest
 - kind: ConfigMap
   apiVersion: v1
   metadata:
     name: ${APPLICATION_NAME}-config
   data:
     http.port: "8081"
-    JAEGER_SAMPLER_MANAGER_HOST_PORT: jaeger-agent.${JAEGER_NAMESPACE}.svc:5778
-    JAEGER_AGENT_HOST: jaeger-agent.${JAEGER_NAMESPACE}.svc
-    JAEGER_SERVICE_NAME: ${APPLICATION_NAME}
 - kind: DeploymentConfig
   apiVersion: v1
   metadata:
     name: ${APPLICATION_NAME}
+    labels:
+      app: ${APPLICATION_NAME}
     annotations:
       description: Defines how to deploy the mule application
   spec:
@@ -99,10 +126,11 @@ objects:
     strategy:
       type: Rolling
       activeDeadlineSeconds: 21600
+      resources: {}
       rollingParams:
         intervalSeconds: 1
-        maxSurge: 25%
-        maxUnavailable: 25%
+        maxSurge: '25%'
+        maxUnavailable: '25%'
         timeoutSeconds: 600
         updatePeriodSeconds: 1
     template:
@@ -113,7 +141,7 @@ objects:
       spec:
         containers:
         - name: ${APPLICATION_NAME}
-          image: ${APPLICATION_NAME}:latest
+          image: ${APPLICATION_NAME}-runtime
           imagePullPolicy: Always
           env:
           - name: http.port
@@ -128,6 +156,7 @@ objects:
           terminationMessagePath: /dev/termination-log
         dnsPolicy: ClusterFirst
         restartPolicy: Always
+        securityContext: {}
         terminationGracePeriodSeconds: 30
     test: false
     triggers:
@@ -139,7 +168,7 @@ objects:
         - ${APPLICATION_NAME}
         from:
           kind: ImageStreamTag
-          name: ${APPLICATION_NAME}:latest
+          name: ${APPLICATION_NAME}-runtime:latest
 - kind: Service
   apiVersion: v1
   metadata:
@@ -206,12 +235,8 @@ parameters:
   description: Maven mirror to use for builds
   displayName: Maven mirror URL
   required: false
-- description: Namespace in which the ImageStream for Mule 4 runtime image is installed. These ImageStreams are normally installed in the openshift namespace. You should only need to modify this if you've installed the ImageStreams in a different namespace/project.
+- description: Namespace in which the ImageStreams for Mule 4 s2i and runtime images are installed. These ImageStreams are normally installed in the openshift namespace. You should only need to modify this if you've installed the ImageStreams in a different namespace/project.
   displayName: ImageStream Namespace
   name: IMAGE_STREAM_NAMESPACE
   required: true
   value: openshift
-- description:
-  displayName: Namespace of the ephemeral Jaeger instance
-  name: JAEGER_NAMESPACE
-  required: true
