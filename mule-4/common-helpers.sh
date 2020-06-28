@@ -14,7 +14,7 @@ function cmn_mule_create_user {
   local container=${1}
 
   cmn_echo_info "---> Creating mule user"
-  buildah run --user root $container bash -c 'groupadd -r mule -g 1000 \
+  buildah run --runtime /usr/bin/runc --user root $container bash -c 'groupadd -r mule -g 1000 \
     && useradd -u 1000 -r -g mule -m -d /opt/mule -s /sbin/nologin mule \
     && chmod 755 /opt/mule \
     && usermod -g root -G `id -g mule` mule'
@@ -33,5 +33,5 @@ function cmn_mule_create_user {
 function cmn_mule_add_group_permissions {
   local container=${1}
 
-  buildah run --user root $container bash -c 'chmod -R "g+rwX" /opt/mule'
+  buildah run --runtime /usr/bin/runc --user root $container bash -c 'chmod -R "g+rwX" /opt/mule'
 }

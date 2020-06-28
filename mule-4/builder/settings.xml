@@ -20,16 +20,12 @@
   <profiles>
     <!-- ### build time configured profiles ### -->
     <profile>
-      <id>default</id>
-      <activation>
-        <activeByDefault>true</activeByDefault>
-      </activation>
-
+      <id>mulesoft</id>
       <repositories>
         <!-- MuleSoft public repositories -->
         <repository>
           <id>mulesoft-release</id>
-          <url>https://repository.mulesoft.org/nexus/content/groups/public</url>
+          <url>https://repository.mulesoft.org/nexus/content/repositories/releases</url>
           <releases>
             <enabled>true</enabled>
           </releases>
@@ -39,7 +35,7 @@
         </repository>
         <repository>
           <id>mulesoft-snapshots</id>
-          <url>https://repository.mulesoft.org/nexus/content/groups/public-snapshots</url>
+          <url>https://repository.mulesoft.org/nexus/content/repositories/snapshots</url>
           <releases>
             <enabled>false</enabled>
           </releases>
@@ -110,7 +106,7 @@
       </pluginRepositories>
     </profile>
   </profiles>
-  
+
   <pluginGroups>
     <pluginGroup>org.mule.tools</pluginGroup>
   </pluginGroups>

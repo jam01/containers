@@ -62,7 +62,7 @@ objects:
         FROM mule4-ee:latest
         COPY * /opt/mule/apps/
       binary:
-        asFile: ?
+        asFile: '?'
     strategy:
       type: Docker
       dockerStrategy:
@@ -101,8 +101,8 @@ objects:
       resources: {}
       rollingParams:
         intervalSeconds: 1
-        maxSurge: 25%
-        maxUnavailable: 25%
+        maxSurge: '25%'
+        maxUnavailable: '25%'
         timeoutSeconds: 600
         updatePeriodSeconds: 1
     template:
