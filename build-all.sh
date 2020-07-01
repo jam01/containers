@@ -1,5 +1,3 @@
-podman login quay.io
-
 yum update -y && yum install ncurses buildah -y
 ./openjdk/from-scratch.sh centos 8 jre 8
 ./openjdk/from-scratch.sh centos 8 jdk 8
@@ -12,6 +10,7 @@ yum update -y && yum install ncurses buildah -y
 ./mule-4/runtime/ee-from-scratch.sh centos 8 4.3.0 8
 ./mule-4/runtime/ee-from-scratch.sh centos 8 4.3.0 11
 
+podman login quay.io --username jam01 --password $QUAY_PASSWD
 for i in $(podman images | grep 'quay.io/jam01' | awk '{print $3}')
 do
   podman push $i
