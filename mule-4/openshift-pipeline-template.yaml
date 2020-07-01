@@ -1,5 +1,5 @@
 kind: Template
-apiVersion: v1
+apiVersion: template.openshift.io/v1
 message: A new Mule 4 EE application has been created in your project. A service to load balance multiple pods and an external route has been created. You can change the mule application's external properties in the ConfigMap of the same name.
 labels:
   app: ${APPLICATION_NAME}

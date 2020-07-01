@@ -1,5 +1,5 @@
 kind: Template
-apiVersion: v1
+apiVersion: template.openshift.io/v1
 message: A new Mule 4 EE application has been created in your project. A service to load balance multiple pods and an external route has been created. You can change the mule application's external properties in the ConfigMap of the same name.
 labels:
   app: ${APPLICATION_NAME}
@@ -27,7 +27,7 @@ objects:
     name: ${APPLICATION_NAME}-runtime
     annotations:
       description: Keeps track of changes in the runtime image
-- apiVersion: v1
+- apiVersion: build.openshift.io/v1
   kind: BuildConfig
   metadata:
     name: ${APPLICATION_NAME}-artifact-build
@@ -47,7 +47,7 @@ objects:
         incremental: true
         from:
           kind: ImageStreamTag
-          name: s2i-mule-builder:latest
+          name: openjdk-11-rhel8:1.0
           namespace: ${IMAGE_STREAM_NAMESPACE}
         env:
         - name: MAVEN_MIRROR_URL
@@ -67,7 +67,7 @@ objects:
     - type: ImageChange
       imageChange: {}
 - kind: BuildConfig
-  apiVersion: v1
+  apiVersion: build.openshift.io/v1
   metadata:
     name: ${APPLICATION_NAME}-runtime-build
     labels:
@@ -78,14 +78,14 @@ objects:
       type: Dockerfile
       dockerfile: |-
         FROM mule-4-ee:latest
-        COPY * /opt/mule/apps/
+        COPY */*.jar /opt/mule/apps/
       images:
       - from:
           kind: ImageStreamTag
           name: ${APPLICATION_NAME}-artifact:latest
         paths:
         - destinationDir: .
-          sourcePath: /tmp/output/
+          sourcePath: /deployments/
     strategy:
       type: Docker
       dockerStrategy:
@@ -235,7 +235,7 @@ parameters:
   description: Maven mirror to use for builds
   displayName: Maven mirror URL
   required: false
-- description: Namespace in which the ImageStreams for Mule 4 s2i and runtime images are installed. These ImageStreams are normally installed in the openshift namespace. You should only need to modify this if you've installed the ImageStreams in a different namespace/project.
+- description: Namespace in which the source-to-image and mule runtime ImageStreams are installed. These ImageStreams are normally installed in the openshift namespace. You should only need to modify this if you've installed the ImageStreams in a different namespace/project.
   displayName: ImageStream Namespace
   name: IMAGE_STREAM_NAMESPACE
   required: true
