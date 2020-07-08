@@ -38,18 +38,16 @@ rm -rf "mule-enterprise-standalone-${RUNTIME_VER}"
 
 
 cmn_echo_info "---> Configuring runtime"
-# enable log4j2 JMX
-buildah run --runtime /usr/bin/runc ${container} --user root $container bash -c "sed -i '/log4j2.disable.jmx=true/s/^/#/'"
-# include additional wrapper.conf properties
-buildah run --runtime /usr/bin/runc ${container} --user root $container bash -c "sed -i '/^#include.*\/wrapper-additional.conf/s/^#//'"
-buildah copy $container "./mule-4/runtime/wrapper-additional-java${JAVA_MAJOR_VER}.conf" "opt/mule/conf/wrapper-additional.conf"
+mount=$(buildah mount $container)
+echo '#include.required %MULE_BASE%/conf/wrapper-openshift.conf' >> "${mount}/opt/mule/conf/wrapper.conf"
+buildah copy $container "./mule-4/runtime/wrapper-openshift-java${JAVA_MAJOR_VER}.conf" "/opt/mule/conf/wrapper-openshift.conf"
 buildah config --env MULE_HOME=/opt/mule $container
 cmn_mule_add_group_permissions $container
 
 # Expose the necessary port ranges as required by the Mule Apps
 # HTTP listener default ports, remote debugger, JMX, MMC agent, AMC agent
 buildah config --port 8081-8082,5000,1098,7777,9997 $container
-
+buildah unmount $container
 
 cmn_echo_info "---> Configuring image"
 buildah config --user mule $container
