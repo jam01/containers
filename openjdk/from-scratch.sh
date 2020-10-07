@@ -3,33 +3,21 @@
 source common-helpers.sh
 cmn_init || exit 3
 
-if [[ -z $4 ]] ; then
+if [[ -z $3 ]] ; then
  cmn_die "Please provide a following paramaters: the name of the distro and the release version. eg. ./openjdk-from-scratch.sh centos 8 jre 11"
 else
   # Vars
   DISTRO_NAME=$1
   DISTRO_RELEASE=$2
-  JAVA_RUNTIME=$3
-  JAVA_MAJOR_VER=$4
+  JAVA_MAJOR_VER=$3
 
-  JAVA_PACKAGE="java"
+  JAVA_PACKAGE="java-$JAVA_MAJOR_VER-openjdk-headless"
 
-  if [[ $JAVA_MAJOR_VER == "8" ]]; then
-    JAVA_PACKAGE="$JAVA_PACKAGE-1.8.0"
-  else
-    JAVA_PACKAGE="$JAVA_PACKAGE-$JAVA_MAJOR_VER"
-  fi
-
-  if [[ $JAVA_RUNTIME == "jdk" ]]; then
-    JAVA_PACKAGE="$JAVA_PACKAGE-devel"
-  else
-    JAVA_PACKAGE="$JAVA_PACKAGE-headless"
-  fi
 fi
 
 # ------------------------------------------------------------------------------
 
-cmn_echo_info "---> Building openjdk-${DISTRO_NAME}-${JAVA_RUNTIME}:${JAVA_MAJOR_VER} OCI"
+cmn_echo_info "---> Building openjdk:${JAVA_MAJOR_VER} OCI Image"
 
 container=$(buildah from scratch)
 
@@ -47,11 +35,11 @@ cmn_echo_info "---> Configuring image"
 buildah config --author "Jose Montoya <jam01@protonmail.com>" $container
 buildah config --label name=openjdk ${container}
 
-cmn_echo_info "---> Commiting quay.io/jam01/openjdk-${DISTRO_NAME}-${JAVA_RUNTIME}:${JAVA_VER}"
-buildah commit --rm $container quay.io/jam01/openjdk-${DISTRO_NAME}-${JAVA_RUNTIME}:${JAVA_VER}
-buildah tag quay.io/jam01/openjdk-${DISTRO_NAME}-${JAVA_RUNTIME}:${JAVA_VER} quay.io/jam01/openjdk-${DISTRO_NAME}-${JAVA_RUNTIME}:${JAVA_MAJOR_VER}
+cmn_echo_info "---> Commiting quay.io/jam01/openjdk:${JAVA_VER}"
+buildah commit --rm $container quay.io/jam01/openjdk:${JAVA_VER}
+buildah tag quay.io/jam01/openjdk:${JAVA_VER} quay.io/jam01/openjdk:${JAVA_MAJOR_VER}
 
-if [[ $JAVA_MAJOR_VER == "11" ]]; then
+if [[ $JAVA_MAJOR_VER == "14" ]]; then
   # Tag as latest
-  buildah tag quay.io/jam01/openjdk-${DISTRO_NAME}-${JAVA_RUNTIME}:${JAVA_VER} quay.io/jam01/openjdk-${DISTRO_NAME}-${JAVA_RUNTIME}:latest
+  buildah tag quay.io/jam01/openjdk:${JAVA_VER} quay.io/jam01/openjdk:latest
 fi

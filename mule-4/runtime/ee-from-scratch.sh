@@ -16,13 +16,13 @@ fi
 
 # ------------------------------------------------------------------------------
 
-cmn_echo_info "---> Building mule-4-ee-${DISTRO_NAME}:${RUNTIME_VER}-java${JAVA_MAJOR_VER} OCI"
+cmn_echo_info "---> Building mule-4-ee:${RUNTIME_VER}-java${JAVA_MAJOR_VER} OCI"
 cmn_echo_info "---> Preparing host"
 yum install unzip -y
 
 
-cmn_echo_info "---> Using quay.io/jam01/openjdk-${DISTRO_NAME}-jre:${JAVA_MAJOR_VER} as base image"
-container=$(buildah from "quay.io/jam01/openjdk-${DISTRO_NAME}-jre:${JAVA_MAJOR_VER}")
+cmn_echo_info "---> Using quay.io/jam01/openjdk:${JAVA_MAJOR_VER} as base image"
+container=$(buildah from "quay.io/jam01/openjdk:${JAVA_MAJOR_VER}")
 
 # Packages needed by the wrapper
 cmn_buildah_install_packages_scratch $container "gettext procps" $DISTRO_RELEASE
@@ -39,8 +39,8 @@ rm -rf "mule-enterprise-standalone-${RUNTIME_VER}"
 
 cmn_echo_info "---> Configuring runtime"
 mount=$(buildah mount $container)
-echo '#include.required %MULE_BASE%/conf/wrapper-openshift.conf' >> "${mount}/opt/mule/conf/wrapper.conf"
-buildah copy $container "./mule-4/runtime/wrapper-openshift-java${JAVA_MAJOR_VER}.conf" "/opt/mule/conf/wrapper-openshift.conf"
+echo '#include.required %MULE_BASE%/conf/wrapper-container.conf' >> "${mount}/opt/mule/conf/wrapper.conf"
+buildah copy $container "./mule-4/runtime/wrapper-java-${JAVA_MAJOR_VER}.conf" "/opt/mule/conf/wrapper-container.conf"
 buildah config --env MULE_HOME=/opt/mule $container
 cmn_mule_add_group_permissions $container
 
@@ -59,11 +59,11 @@ buildah config --label io.k8s.display-name="Mule 4 Enterprise Edition" ${contain
 buildah config --label io.openshift.tags="integration,runtime,mule" ${container}
 
 
-cmn_echo_info "---> Commiting quay.io/jam01/mule-4-ee-${DISTRO_NAME}:${RUNTIME_VER}-java${JAVA_MAJOR_VER}"
-buildah commit --rm $container "quay.io/jam01/mule-4-ee-${DISTRO_NAME}:${RUNTIME_VER}-java${JAVA_MAJOR_VER}"
-buildah tag "quay.io/jam01/mule-4-ee-${DISTRO_NAME}:${RUNTIME_VER}-java${JAVA_MAJOR_VER}" "quay.io/jam01/mule-4-ee-${DISTRO_NAME}:latest-java${JAVA_MAJOR_VER}"
+cmn_echo_info "---> Commiting quay.io/jam01/mule-4-ee:${RUNTIME_VER}-java${JAVA_MAJOR_VER}"
+buildah commit --rm $container "quay.io/jam01/mule-4-ee:${RUNTIME_VER}-java${JAVA_MAJOR_VER}"
+buildah tag "quay.io/jam01/mule-4-ee:${RUNTIME_VER}-java${JAVA_MAJOR_VER}" "quay.io/jam01/mule-4-ee:latest-java${JAVA_MAJOR_VER}"
 
-if [[ $JAVA_MAJOR_VER == "11" ]]; then
+if [[ $JAVA_MAJOR_VER == "14" ]]; then
   # Tag as latest
-  buildah tag "quay.io/jam01/mule-4-ee-${DISTRO_NAME}:${RUNTIME_VER}-java${JAVA_MAJOR_VER}" "quay.io/jam01/mule-4-ee-${DISTRO_NAME}:latest"
+  buildah tag "quay.io/jam01/mule-4-ee:${RUNTIME_VER}-java${JAVA_MAJOR_VER}" "quay.io/jam01/mule-4-ee:latest"
 fi
